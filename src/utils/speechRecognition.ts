@@ -1,3 +1,4 @@
+
 // Speech recognition functionality
 let recognition: any | null = null; // Using any temporarily since the global type isn't recognized
 let listening = false;
@@ -31,6 +32,14 @@ const commandListeners: Record<CommandType, CommandCallback[]> = {
   settings: [],
 };
 
+// Dispatch custom event with recognized speech
+const dispatchSpeechEvent = (text: string) => {
+  const event = new CustomEvent('speechRecognized', { 
+    detail: { text }
+  });
+  window.dispatchEvent(event);
+};
+
 // Initialize speech recognition
 export const initSpeechRecognition = () => {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -45,7 +54,7 @@ export const initSpeechRecognition = () => {
     
     if (recognition) {
       recognition.continuous = true;
-      recognition.interimResults = false;
+      recognition.interimResults = true;
       recognition.lang = 'en-US';
       
       recognition.onstart = () => {
@@ -81,19 +90,43 @@ export const initSpeechRecognition = () => {
         if (event.error === 'network') {
           // Network errors often happen in sandboxed environments, so don't stop listening
           console.log('Network error occurred, continuing...');
+        } else if (event.error === 'no-speech') {
+          console.log('No speech detected, continuing...');
+        } else if (event.error === 'aborted') {
+          console.log('Speech recognition aborted, restarting...');
+          // Don't set listening to false, just restart
+          setTimeout(() => {
+            try {
+              if (recognition) {
+                recognition.start();
+              }
+            } catch (e) {
+              console.error('Failed to restart after abort:', e);
+            }
+          }, 1000);
         } else {
+          console.log(`Speech recognition error: ${event.error}, attempting to restart...`);
           listening = false;
+          // Try restarting after a delay
+          setTimeout(() => startListening(), 2000);
         }
       };
       
       recognition.onresult = (event: any) => {
-        const result = event.results[event.results.length - 1];
-        const transcript = result[0].transcript.trim().toLowerCase();
-        
-        console.log('Voice command recognized:', transcript);
-        
-        // Process the command
-        processCommand(transcript);
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          const transcript = result[0].transcript.trim().toLowerCase();
+          
+          // Emit event with recognized speech
+          dispatchSpeechEvent(transcript);
+          
+          // Only process final results
+          if (result.isFinal) {
+            console.log('Voice command recognized:', transcript);
+            // Process the command
+            processCommand(transcript);
+          }
+        }
       };
       
       return true;
