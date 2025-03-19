@@ -20,12 +20,20 @@ const queryClient = new QueryClient();
 const App = () => {
   // Initialize speech synthesis and recognition on app load
   useEffect(() => {
+    // Initialize speech synthesis
     initSpeechSynthesis();
-    const recognitionInitialized = initSpeechRecognition();
     
-    if (recognitionInitialized) {
-      startListening();
-    }
+    // Initialize speech recognition with a slight delay to ensure everything is loaded
+    setTimeout(() => {
+      const recognitionInitialized = initSpeechRecognition();
+      
+      if (recognitionInitialized) {
+        console.log('Speech recognition initialized successfully');
+        startListening();
+      } else {
+        console.error('Failed to initialize speech recognition');
+      }
+    }, 1000);
   }, []);
   
   return (

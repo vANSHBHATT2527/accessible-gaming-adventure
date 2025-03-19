@@ -9,6 +9,7 @@ import GameButton from '@/components/ui/GameButton';
 type CardType = {
   id: number;
   value: string;
+  description: string; // Add description property
   flipped: boolean;
   matched: boolean;
 };

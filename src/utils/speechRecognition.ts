@@ -1,6 +1,5 @@
-
 // Speech recognition functionality
-let recognition: SpeechRecognition | null = null;
+let recognition: any | null = null; // Using any temporarily since the global type isn't recognized
 let listening = false;
 
 const commands: Record<string, string[]> = {
@@ -41,8 +40,8 @@ export const initSpeechRecognition = () => {
   
   try {
     // @ts-ignore - Using webkit version if standard is not available
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
+    const SpeechRecognitionApi = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognitionApi();
     
     if (recognition) {
       recognition.continuous = true;
@@ -51,22 +50,43 @@ export const initSpeechRecognition = () => {
       
       recognition.onstart = () => {
         listening = true;
+        console.log('Speech recognition started');
       };
       
       recognition.onend = () => {
         listening = false;
-        // Restart recognition after it ends
+        console.log('Speech recognition ended');
+        // Restart recognition after it ends, but make sure it's not already running
         if (recognition) {
-          recognition.start();
+          try {
+            recognition.start();
+            console.log('Restarting speech recognition');
+          } catch (e) {
+            console.error('Error restarting speech recognition:', e);
+            // Wait a bit and try again
+            setTimeout(() => {
+              try {
+                recognition.start();
+              } catch (e) {
+                console.error('Failed to restart speech recognition after delay:', e);
+              }
+            }, 1000);
+          }
         }
       };
       
-      recognition.onerror = (event) => {
+      recognition.onerror = (event: any) => {
         console.error('Speech recognition error', event.error);
-        listening = false;
+        
+        if (event.error === 'network') {
+          // Network errors often happen in sandboxed environments, so don't stop listening
+          console.log('Network error occurred, continuing...');
+        } else {
+          listening = false;
+        }
       };
       
-      recognition.onresult = (event) => {
+      recognition.onresult = (event: any) => {
         const result = event.results[event.results.length - 1];
         const transcript = result[0].transcript.trim().toLowerCase();
         
@@ -90,6 +110,7 @@ export const startListening = () => {
   if (recognition && !listening) {
     try {
       recognition.start();
+      console.log('Starting speech recognition');
       return true;
     } catch (error) {
       console.error('Error starting speech recognition:', error);
